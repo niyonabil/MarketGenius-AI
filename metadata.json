@@ -1,0 +1,7 @@
+{
+  "name": "MarketGenius AI",
+  "description": "Plateforme tout-en-un de marketing e-commerce : recherche de produits gagnants, analyse de tendances et génération de contenu (Images, Vidéos, Audio) alimentée par Gemini AI.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

@@ -227,8 +227,6 @@ export const scanWinningProducts = async (excludeNames: string[] = [], language:
             Identifie 12 NOUVEAUX produits qui fonctionnent bien.
             Ne retourne PAS : ${excludeList}.
             
-            IMPORTANT: Pour chaque produit, trouve un lien source REEL (AliExpress, Amazon, ou Site Dropshipping) et une URL d'image valide si possible.
-            
             Retourne UNIQUEMENT une liste JSON stricte :
             [{
                 "rank": 1,
@@ -238,7 +236,6 @@ export const scanWinningProducts = async (excludeNames: string[] = [], language:
                 "platforms": ["TikTok", "Google", "Bing"],
                 "profitMargin": "x3",
                 "reason": "Pourquoi c'est viral ?",
-                "sourceUrl": "https://...",
                 "originalImageUrl": "https://..." (URL d'image jpg/png si trouvée, sinon vide)
             }]
             `,
@@ -254,7 +251,8 @@ export const scanWinningProducts = async (excludeNames: string[] = [], language:
         // Sanitize check
         return list.map((p: any) => ({
             ...p,
-            sourceUrl: p.sourceUrl || `https://www.google.com/search?q=${encodeURIComponent(p.name)}`,
+            // REPLACEMENT: Instead of trusting the AI's link which often 404s, we generate a Google Shopping Search link.
+            sourceUrl: `https://www.google.com/search?q=${encodeURIComponent(p.name)}&tbm=shop`,
             originalImageUrl: p.originalImageUrl?.startsWith('http') ? p.originalImageUrl : undefined
         }));
 

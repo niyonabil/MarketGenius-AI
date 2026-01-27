@@ -223,10 +223,11 @@ export const Assets: React.FC = () => {
                              <div className="w-full bg-dark-900 border border-slate-700 rounded-xl p-6 relative shadow-xl">
                                 <button 
                                     onClick={handleCopy}
-                                    className="absolute top-4 right-4 p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors border border-slate-700"
+                                    className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-slate-300 hover:text-white transition-colors border border-slate-700 flex items-center gap-2"
                                     title="Copier le texte"
                                 >
-                                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                    {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                    {copied ? "Copié !" : "Copier"}
                                 </button>
                                 <div className="prose prose-invert max-w-none whitespace-pre-wrap font-medium text-slate-200">
                                     {result}

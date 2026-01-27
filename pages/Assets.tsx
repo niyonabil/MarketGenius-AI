@@ -172,7 +172,7 @@ export const Assets: React.FC = () => {
                 </div>
 
                 {/* Preview Area */}
-                <div className="lg:col-span-2 bg-dark-950 rounded-2xl border-2 border-dashed border-slate-800 flex items-center justify-center min-h-[400px] relative overflow-hidden group p-6">
+                <div className={`lg:col-span-2 rounded-2xl border-2 border-slate-800 flex items-center justify-center min-h-[400px] relative overflow-hidden group p-6 ${result || audioBuffer ? 'bg-dark-950 border-solid' : 'bg-dark-950 border-dashed'}`}>
                     {loading && (
                         <div className="absolute inset-0 bg-dark-950/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
                             <Loader2 className="w-12 h-12 text-brand-500 animate-spin mb-4" />
@@ -219,16 +219,21 @@ export const Assets: React.FC = () => {
                     )}
 
                     {activeTab === Tab.TEXT && result && (
-                        <div className="w-full h-full flex flex-col items-start justify-start">
-                             <div className="w-full bg-dark-900 border border-slate-700 rounded-xl p-6 relative shadow-xl">
+                        <div className="w-full h-full flex flex-col">
+                             <div className="flex items-center justify-between mb-3 px-1">
+                                <div className="flex items-center gap-2 text-slate-300">
+                                    <Sparkles className="w-4 h-4 text-brand-400" />
+                                    <span className="font-semibold text-sm">Contenu Généré</span>
+                                </div>
                                 <button 
                                     onClick={handleCopy}
-                                    className="absolute top-4 right-4 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-slate-300 hover:text-white transition-colors border border-slate-700 flex items-center gap-2"
-                                    title="Copier le texte"
+                                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-lg ${copied ? 'bg-green-500 text-white' : 'bg-brand-600 hover:bg-brand-500 text-white'}`}
                                 >
-                                    {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                    {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                                     {copied ? "Copié !" : "Copier"}
                                 </button>
+                             </div>
+                             <div className="w-full bg-dark-900 border border-slate-700 rounded-xl p-6 shadow-xl flex-1 overflow-y-auto max-h-[600px]">
                                 <div className="prose prose-invert max-w-none whitespace-pre-wrap font-medium text-slate-200">
                                     {result}
                                 </div>

@@ -1,11 +1,11 @@
-import initSqlJs, { Database } from 'sql.js';
+import initSqlJs from 'sql.js';
 import localforage from 'localforage';
 import { SearchFilters, WinningProduct } from '../types';
 
 const DB_NAME = 'marketgenius_db.sqlite';
 
 class DatabaseService {
-    private db: Database | null = null;
+    private db: any = null;
     private initialized: boolean = false;
 
     async init() {
@@ -13,9 +13,9 @@ class DatabaseService {
 
         try {
             // 1. Load SQL.js WebAssembly
+            // Using version 1.8.0 to match the ESM loader in index.html and ensure stability
             const SQL = await initSqlJs({
-                // Locate the WASM file from a reliable CDN
-                locateFile: file => `https://sql.js.org/dist/${file}`
+                locateFile: () => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.wasm`
             });
 
             // 2. Try to load existing DB from storage

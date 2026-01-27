@@ -21,6 +21,12 @@ export interface AppSettings {
   enableVeo: boolean;
 }
 
+export interface SearchFilters {
+  platform?: string;
+  priceRange?: string;
+  category?: string;
+}
+
 export interface ProductAnalysis {
   productName: string;
   priceRange: string;

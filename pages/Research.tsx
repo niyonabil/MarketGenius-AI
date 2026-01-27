@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Search, Loader2, AlertCircle, History, Filter, Trash2, Bookmark, ExternalLink } from 'lucide-react';
-import { searchProducts, SearchFilters } from '../services/geminiService';
+import { searchProducts } from '../services/geminiService';
+import { SearchFilters } from '../types';
+import { dbService } from '../services/db';
 
 interface SavedSearch {
     id: string;
@@ -23,36 +25,26 @@ export const Research: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<SavedSearch[]>([]);
 
-  // Load history from local storage on mount
+  // Load history from SQLite on mount
   useEffect(() => {
-      const saved = localStorage.getItem('marketgenius_history');
-      if (saved) {
-          try {
-              setHistory(JSON.parse(saved));
-          } catch (e) {
-              console.error("Failed to parse history", e);
-          }
-      }
+      loadHistoryFromDb();
   }, []);
 
+  const loadHistoryFromDb = () => {
+      const saved = dbService.getHistory();
+      setHistory(saved);
+  };
+
   const saveToHistory = (q: string, f: SearchFilters) => {
-      const newSearch: SavedSearch = {
-          id: Date.now().toString(),
-          query: q,
-          filters: f,
-          timestamp: Date.now()
-      };
-      // Keep only last 10
-      const updated = [newSearch, ...history].slice(0, 10);
-      setHistory(updated);
-      localStorage.setItem('marketgenius_history', JSON.stringify(updated));
+      const id = Date.now().toString();
+      dbService.addSearch(id, q, f);
+      loadHistoryFromDb(); // Refresh list
   };
 
   const deleteHistoryItem = (id: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      const updated = history.filter(item => item.id !== id);
-      setHistory(updated);
-      localStorage.setItem('marketgenius_history', JSON.stringify(updated));
+      dbService.deleteSearch(id);
+      loadHistoryFromDb(); // Refresh list
   }
 
   const loadSearch = (item: SavedSearch) => {
@@ -60,9 +52,6 @@ export const Research: React.FC = () => {
       setPlatform(item.filters.platform || 'all');
       setPriceRange(item.filters.priceRange || 'all');
       setCategory(item.filters.category || '');
-      // Optional: Auto-trigger search?
-      // handleSearch(null, item.query, item.filters); 
-      // Let's just fill the form for now.
   };
 
   const handleSearch = async (e?: React.FormEvent) => {
@@ -258,9 +247,12 @@ export const Research: React.FC = () => {
 
       {/* History Sidebar */}
       <div className="w-full lg:w-80 bg-dark-900 border border-slate-800 rounded-2xl p-6 h-fit max-h-full overflow-y-auto sticky top-0">
-          <div className="flex items-center gap-2 mb-6 text-white border-b border-slate-800 pb-4">
-              <History className="w-5 h-5 text-brand-400" />
-              <h2 className="font-bold">Historique</h2>
+          <div className="flex items-center justify-between mb-6 text-white border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <History className="w-5 h-5 text-brand-400" />
+                <h2 className="font-bold">Historique</h2>
+              </div>
+              <span className="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400 font-mono">SQLITE</span>
           </div>
           
           <div className="space-y-3">

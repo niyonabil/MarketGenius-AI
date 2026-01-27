@@ -1,6 +1,7 @@
-import React from 'react';
-import { Globe, Key, Shield, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Globe, Key, Shield, Info, Save, Eye, EyeOff } from 'lucide-react';
 import { AppSettings, Language } from '../types';
+import { dbService } from '../services/db';
 
 interface SettingsProps {
     settings: AppSettings;
@@ -9,8 +10,24 @@ interface SettingsProps {
 
 export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
     
+    // API Key State
+    const [customApiKey, setCustomApiKey] = useState('');
+    const [showKey, setShowKey] = useState(false);
+    const [savedSuccess, setSavedSuccess] = useState(false);
+
+    useEffect(() => {
+        const key = dbService.getApiKey();
+        if (key) setCustomApiKey(key);
+    }, []);
+
     const handleLanguageChange = (lang: Language) => {
         onSettingsChange({ ...settings, language: lang });
+    };
+
+    const handleSaveApiKey = () => {
+        dbService.setApiKey(customApiKey.trim());
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 3000);
     };
 
     const triggerVeoKeySelection = async () => {
@@ -76,35 +93,60 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
                                 <Key className="w-6 h-6 text-yellow-400" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-white">Clés API (GCP)</h3>
-                                <p className="text-sm text-slate-500">Gestion des accès pour les modèles avancés (Veo).</p>
+                                <h3 className="text-xl font-bold text-white">Clés API (Gemini)</h3>
+                                <p className="text-sm text-slate-500">Utilisez votre propre clé pour éviter les limites de quota.</p>
                             </div>
                         </div>
 
+                        {/* Custom API Key Input */}
                         <div className="bg-dark-950 rounded-xl p-5 border border-slate-800 mb-6">
-                             <div className="flex items-center gap-2 text-green-400 mb-2">
-                                <Shield className="w-4 h-4" />
-                                <span className="font-bold text-sm">Clé Principale Active</span>
+                             <div className="flex items-center justify-between mb-2">
+                                <label className="text-sm font-bold text-slate-300">Votre Clé API Personnelle</label>
+                                {savedSuccess && <span className="text-xs text-green-400 font-bold animate-pulse">Sauvegardé !</span>}
                              </div>
-                             <p className="text-xs text-slate-500">
-                                 Votre clé `process.env.API_KEY` est configurée et sécurisée. Elle est utilisée pour Gemini Flash, Pro et Imagen.
+                             
+                             <div className="relative flex items-center gap-2">
+                                <div className="relative flex-1">
+                                    <input 
+                                        type={showKey ? "text" : "password"} 
+                                        value={customApiKey}
+                                        onChange={(e) => setCustomApiKey(e.target.value)}
+                                        placeholder="AIzaSy..."
+                                        className="w-full bg-dark-900 border border-slate-700 text-white rounded-lg pl-3 pr-10 py-3 focus:border-yellow-500 outline-none text-sm font-mono"
+                                    />
+                                    <button 
+                                        onClick={() => setShowKey(!showKey)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                                    >
+                                        {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                                <button 
+                                    onClick={handleSaveApiKey}
+                                    className="bg-brand-600 hover:bg-brand-500 text-white p-3 rounded-lg transition-colors"
+                                    title="Sauvegarder"
+                                >
+                                    <Save className="w-5 h-5" />
+                                </button>
+                             </div>
+                             
+                             <p className="text-[10px] text-slate-500 mt-2">
+                                 Stockée localement dans SQLite. Laissez vide pour utiliser la clé par défaut (limitée).
+                                 <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-yellow-500 hover:underline ml-1">Obtenir une clé ici.</a>
                              </p>
                         </div>
 
                         <div className="border-t border-slate-800 pt-6">
                             <h4 className="text-white font-medium mb-2">Génération Vidéo (Veo)</h4>
                             <p className="text-sm text-slate-400 mb-4">
-                                Le modèle de génération vidéo Veo nécessite une clé API liée à un projet facturable (Blaze Plan).
+                                Le modèle vidéo nécessite une authentification spécifique pour la facturation.
                             </p>
                             <button 
                                 onClick={triggerVeoKeySelection}
-                                className="w-full py-3 bg-yellow-600 hover:bg-yellow-500 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+                                className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
                             >
-                                <Key className="w-4 h-4" /> Configurer Clé Vidéo (Popup)
+                                <Key className="w-4 h-4" /> Authentification Projet (OAuth)
                             </button>
-                            <p className="text-[10px] text-slate-500 mt-2 text-center">
-                                Cela ouvrira la fenêtre de sélection de clé Google AI Studio.
-                            </p>
                         </div>
                      </div>
 
@@ -113,7 +155,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
                         <div>
                             <h4 className="text-white font-bold text-sm">À propos des Moteurs de Recherche</h4>
                             <p className="text-xs text-slate-400 mt-1">
-                                L'IA utilise le "Grounding" Google Search pour récupérer les tendances. Bien qu'elle interroge l'index Google, nous incluons explicitement dans les prompts des demandes sur les tendances Bing et Yahoo pour vous offrir une vue globale.
+                                L'IA utilise le "Grounding" Google Search pour récupérer les tendances. L'ajout d'une clé API personnelle augmente considérablement la fiabilité et la vitesse des recherches.
                             </p>
                         </div>
                      </div>

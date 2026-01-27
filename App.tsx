@@ -5,7 +5,8 @@ import { Research } from './pages/Research';
 import { Trends } from './pages/Trends';
 import { Assets } from './pages/Assets';
 import { Settings } from './pages/Settings';
-import { ShoppingCart, BarChart3, Rocket } from 'lucide-react';
+import { ShoppingCart, BarChart3, Rocket, Database } from 'lucide-react';
+import { dbService } from './services/db';
 
 const Dashboard: React.FC<{ onViewChange: (v: View) => void }> = ({ onViewChange }) => (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -50,9 +51,12 @@ const Dashboard: React.FC<{ onViewChange: (v: View) => void }> = ({ onViewChange
         </div>
         
         <div className="bg-dark-900 border border-slate-800 rounded-2xl p-8 mt-8">
-            <h2 className="text-2xl font-bold text-white mb-4">Dernières Activités</h2>
-            <div className="text-slate-500 italic text-center py-8">
-                Aucune activité récente. Commencez par lancer une recherche.
+            <div className="flex items-center gap-3 mb-4">
+                 <Database className="w-6 h-6 text-brand-500" />
+                 <h2 className="text-2xl font-bold text-white">État du Système</h2>
+            </div>
+            <div className="text-slate-400 text-sm">
+                <p className="flex items-center gap-2"><span className="w-2 h-2 bg-green-500 rounded-full"></span> Base de données SQLite connectée et prête.</p>
             </div>
         </div>
     </div>
@@ -60,7 +64,17 @@ const Dashboard: React.FC<{ onViewChange: (v: View) => void }> = ({ onViewChange
 
 function App() {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
+  const [dbReady, setDbReady] = useState(false);
   
+  // Initialize SQLite on startup
+  useEffect(() => {
+    const init = async () => {
+        await dbService.init();
+        setDbReady(true);
+    };
+    init();
+  }, []);
+
   // Settings State with Persistence
   const [settings, setSettings] = useState<AppSettings>(() => {
       const saved = localStorage.getItem('marketgenius_settings');
@@ -71,6 +85,15 @@ function App() {
       setSettings(newSettings);
       localStorage.setItem('marketgenius_settings', JSON.stringify(newSettings));
   };
+
+  if (!dbReady) {
+      return (
+          <div className="flex h-screen w-screen items-center justify-center bg-dark-950 text-white flex-col gap-4">
+              <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+              <p>Chargement de la base de données...</p>
+          </div>
+      )
+  }
 
   return (
     <Layout currentView={currentView} setCurrentView={setCurrentView}>

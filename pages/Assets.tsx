@@ -10,7 +10,11 @@ enum Tab {
     TEXT = 'text'
 }
 
-export const Assets: React.FC = () => {
+interface AssetsProps {
+    onViewChange: (view: View) => void;
+}
+
+export const Assets: React.FC<AssetsProps> = ({ onViewChange }) => {
     const [activeTab, setActiveTab] = useState<Tab>(Tab.IMAGE);
     const [prompt, setPrompt] = useState('');
     const [loading, setLoading] = useState(false);
@@ -130,14 +134,20 @@ export const Assets: React.FC = () => {
                         />
                         
                         {error && (
-                            <div className="mt-4 p-3 bg-red-900/30 border border-red-800 text-red-200 rounded-lg text-sm flex items-start gap-2">
-                                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                <div>
+                            <div className="mt-4 p-3 bg-red-900/30 border border-red-800 text-red-200 rounded-lg text-sm flex flex-col items-start gap-2 animate-in fade-in slide-in-from-top-2">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
                                     <p>{error}</p>
-                                    {error.includes('Quota') && (
-                                        <p className="mt-1 text-xs opacity-80">Allez dans Paramètres pour ajouter votre clé API.</p>
-                                    )}
                                 </div>
+                                {error.includes('Quota') && (
+                                    <button 
+                                        onClick={() => onViewChange(View.SETTINGS)}
+                                        className="mt-2 px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white text-xs rounded-lg font-bold flex items-center gap-2 transition-colors w-full justify-center"
+                                    >
+                                        <SettingsIcon className="w-3 h-3" />
+                                        Configurer Clé API
+                                    </button>
+                                )}
                             </div>
                         )}
 

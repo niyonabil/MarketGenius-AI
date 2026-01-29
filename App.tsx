@@ -100,7 +100,7 @@ function App() {
       {currentView === View.DASHBOARD && <Dashboard onViewChange={setCurrentView} />}
       {currentView === View.RESEARCH && <Research onViewChange={setCurrentView} />}
       {currentView === View.TRENDS && <Trends settings={settings} onViewChange={setCurrentView} />}
-      {currentView === View.ASSETS && <Assets />}
+      {currentView === View.ASSETS && <Assets onViewChange={setCurrentView} />}
       {currentView === View.SETTINGS && <Settings settings={settings} onSettingsChange={handleSettingsChange} />}
     </Layout>
   );

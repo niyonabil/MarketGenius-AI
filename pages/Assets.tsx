@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Image as ImageIcon, Video, Mic, Download, Play, Loader2, Sparkles, Key, FileText, Copy, Check, RefreshCw } from 'lucide-react';
+import { Image as ImageIcon, Video, Mic, Download, Play, Loader2, Sparkles, Key, FileText, Copy, Check, RefreshCw, AlertCircle, Settings as SettingsIcon } from 'lucide-react';
 import { generateMarketingImage, generateMarketingVideo, generateMarketingAudio, generateMarketingText, playAudioBuffer } from '../services/geminiService';
+import { View } from '../types';
 
 enum Tab {
     IMAGE = 'image',
@@ -16,6 +17,7 @@ export const Assets: React.FC = () => {
     const [result, setResult] = useState<string | null>(null); // For Image/Video URL or Text content
     const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
     const [copied, setCopied] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Specific state for Veo Key Selection
     const [showKeySelector, setShowKeySelector] = useState(false);
@@ -23,9 +25,9 @@ export const Assets: React.FC = () => {
     const handleGenerate = async () => {
         if (!prompt) return;
         setLoading(true);
-        setResult(null);
-        setAudioBuffer(null);
+        // We keep the previous result visible while generating the new one (better UX for regeneration)
         setCopied(false);
+        setError(null);
 
         try {
             if (activeTab === Tab.IMAGE) {
@@ -52,9 +54,9 @@ export const Assets: React.FC = () => {
                 const text = await generateMarketingText(prompt);
                 setResult(text);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Generation error", error);
-            alert("Erreur lors de la génération. Vérifiez votre clé API ou réessayez.");
+            setError(error.message || "Erreur lors de la génération. Vérifiez votre clé API ou réessayez.");
         } finally {
             setLoading(false);
         }
@@ -80,14 +82,14 @@ export const Assets: React.FC = () => {
     };
 
     return (
-        <div className="space-y-8">
-            <header>
+        <div className="space-y-8 h-full flex flex-col">
+            <header className="flex-none">
                 <h1 className="text-3xl font-bold text-white mb-2">Studio Créatif AI</h1>
                 <p className="text-slate-400">Générez des visuels, des publicités vidéo, des voix off et du texte persuasif.</p>
             </header>
 
             {/* Tabs */}
-            <div className="flex space-x-2 bg-dark-900 p-1 rounded-xl w-fit border border-slate-800 flex-wrap">
+            <div className="flex-none flex space-x-2 bg-dark-900 p-1 rounded-xl w-fit border border-slate-800 flex-wrap">
                 {[
                     { id: Tab.IMAGE, icon: ImageIcon, label: "Image" },
                     { id: Tab.VIDEO, icon: Video, label: "Vidéo (Veo)" },
@@ -96,7 +98,7 @@ export const Assets: React.FC = () => {
                 ].map(tab => (
                     <button
                         key={tab.id}
-                        onClick={() => { setActiveTab(tab.id); setResult(null); setAudioBuffer(null); setPrompt(''); }}
+                        onClick={() => { setActiveTab(tab.id); setResult(null); setAudioBuffer(null); setPrompt(''); setError(null); }}
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
                             activeTab === tab.id 
                             ? 'bg-brand-600 text-white shadow-lg' 
@@ -109,18 +111,17 @@ export const Assets: React.FC = () => {
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-0">
                 {/* Input Area */}
-                <div className="lg:col-span-1 space-y-4">
-                    <div className="bg-dark-900 border border-slate-800 rounded-2xl p-6">
+                <div className="lg:col-span-1 space-y-4 flex flex-col">
+                    <div className="bg-dark-900 border border-slate-800 rounded-2xl p-6 flex-1 flex flex-col">
                         <label className="block text-sm font-medium text-slate-300 mb-3">
                             {activeTab === Tab.AUDIO ? "Texte à prononcer" : "Description du prompt"}
                         </label>
                         <textarea 
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
-                            rows={6}
-                            className="w-full bg-dark-950 border border-slate-700 rounded-xl p-4 text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none resize-none"
+                            className="flex-1 w-full bg-dark-950 border border-slate-700 rounded-xl p-4 text-white placeholder-slate-600 focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none resize-none"
                             placeholder={
                                 activeTab === Tab.AUDIO ? "Entrez le script de votre publicité ici..." : 
                                 activeTab === Tab.TEXT ? "Décrivez le produit, la cible et le ton (ex: fun, professionnel)..." :
@@ -128,6 +129,18 @@ export const Assets: React.FC = () => {
                             }
                         />
                         
+                        {error && (
+                            <div className="mt-4 p-3 bg-red-900/30 border border-red-800 text-red-200 rounded-lg text-sm flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p>{error}</p>
+                                    {error.includes('Quota') && (
+                                        <p className="mt-1 text-xs opacity-80">Allez dans Paramètres pour ajouter votre clé API.</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {showKeySelector ? (
                             <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-700 rounded-xl">
                                 <p className="text-yellow-200 text-sm mb-3">La génération vidéo nécessite une clé API payante sélectionnée.</p>
@@ -146,12 +159,12 @@ export const Assets: React.FC = () => {
                                 className="mt-4 w-full bg-brand-600 hover:bg-brand-500 disabled:bg-slate-700 text-white py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                             >
                                 {loading ? <Loader2 className="animate-spin w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
-                                Générer
+                                {result || audioBuffer ? 'Régénérer / Varier' : 'Générer'}
                             </button>
                         )}
                     </div>
 
-                    <div className="bg-dark-900/50 p-4 rounded-xl border border-slate-800/50">
+                    <div className="bg-dark-900/50 p-4 rounded-xl border border-slate-800/50 flex-none">
                         <h4 className="text-sm font-semibold text-slate-300 mb-2">Conseils Pro</h4>
                         <ul className="text-sm text-slate-500 space-y-1 list-disc list-inside">
                              {activeTab === Tab.TEXT ? (
@@ -172,9 +185,9 @@ export const Assets: React.FC = () => {
                 </div>
 
                 {/* Preview Area */}
-                <div className={`lg:col-span-2 rounded-2xl border-2 border-slate-800 flex items-center justify-center min-h-[400px] relative overflow-hidden group p-6 ${result || audioBuffer ? 'bg-dark-950 border-solid' : 'bg-dark-950 border-dashed'}`}>
+                <div className={`lg:col-span-2 rounded-2xl border-2 border-slate-800 flex items-center justify-center min-h-[400px] h-full relative overflow-hidden group p-6 ${result || audioBuffer ? 'bg-dark-950 border-solid' : 'bg-dark-950 border-dashed'}`}>
                     {loading && (
-                        <div className="absolute inset-0 bg-dark-950/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
+                        <div className="absolute inset-0 bg-dark-950/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-2xl">
                             <Loader2 className="w-12 h-12 text-brand-500 animate-spin mb-4" />
                             <p className="text-slate-300 font-medium">L'IA travaille sur votre chef-d'œuvre...</p>
                             {activeTab === Tab.VIDEO && <p className="text-slate-500 text-sm mt-2">Cela peut prendre quelques minutes.</p>}
@@ -190,12 +203,12 @@ export const Assets: React.FC = () => {
 
                     {activeTab === Tab.IMAGE && result && (
                         <div className="relative w-full h-full flex items-center justify-center p-4">
-                            <img src={result} alt="Generated" className="max-h-[500px] rounded-lg shadow-2xl" />
-                            <div className="absolute bottom-6 right-6 flex gap-3">
+                            <img src={result} alt="Generated" className="max-h-full max-w-full object-contain rounded-lg shadow-2xl" />
+                            <div className="absolute bottom-6 right-6 flex gap-3 z-10">
                                 <button 
                                     onClick={handleGenerate}
                                     className="bg-brand-600 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform hover:bg-brand-500"
-                                    title="Régénérer une variation"
+                                    title="Régénérer une variation avec le même prompt"
                                 >
                                     <RefreshCw className="w-6 h-6" />
                                 </button>
@@ -208,7 +221,7 @@ export const Assets: React.FC = () => {
 
                     {activeTab === Tab.VIDEO && result && (
                         <div className="relative w-full h-full flex items-center justify-center p-4">
-                            <video src={result} controls className="max-h-[500px] rounded-lg shadow-2xl w-full" />
+                            <video src={result} controls className="max-h-full max-w-full rounded-lg shadow-2xl" />
                         </div>
                     )}
 
@@ -242,7 +255,7 @@ export const Assets: React.FC = () => {
                                     {copied ? "Copié !" : "Copier"}
                                 </button>
                              </div>
-                             <div className="w-full bg-dark-900 border border-slate-700 rounded-xl p-6 shadow-xl flex-1 overflow-y-auto max-h-[600px]">
+                             <div className="w-full bg-dark-900 border border-slate-700 rounded-xl p-6 shadow-xl flex-1 overflow-y-auto">
                                 <div className="prose prose-invert max-w-none whitespace-pre-wrap font-medium text-slate-200">
                                     {result}
                                 </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image as ImageIcon, Video, Mic, Download, Play, Loader2, Sparkles, Key, FileText, Copy, Check } from 'lucide-react';
+import { Image as ImageIcon, Video, Mic, Download, Play, Loader2, Sparkles, Key, FileText, Copy, Check, RefreshCw } from 'lucide-react';
 import { generateMarketingImage, generateMarketingVideo, generateMarketingAudio, generateMarketingText, playAudioBuffer } from '../services/geminiService';
 
 enum Tab {
@@ -191,9 +191,18 @@ export const Assets: React.FC = () => {
                     {activeTab === Tab.IMAGE && result && (
                         <div className="relative w-full h-full flex items-center justify-center p-4">
                             <img src={result} alt="Generated" className="max-h-[500px] rounded-lg shadow-2xl" />
-                            <a href={result} download="marketing-image.png" className="absolute bottom-6 right-6 bg-white text-dark-900 p-3 rounded-full shadow-lg hover:scale-110 transition-transform">
-                                <Download className="w-6 h-6" />
-                            </a>
+                            <div className="absolute bottom-6 right-6 flex gap-3">
+                                <button 
+                                    onClick={handleGenerate}
+                                    className="bg-brand-600 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform hover:bg-brand-500"
+                                    title="Régénérer une variation"
+                                >
+                                    <RefreshCw className="w-6 h-6" />
+                                </button>
+                                <a href={result} download="marketing-image.png" className="bg-white text-dark-900 p-3 rounded-full shadow-lg hover:scale-110 transition-transform hover:bg-slate-200" title="Télécharger">
+                                    <Download className="w-6 h-6" />
+                                </a>
+                            </div>
                         </div>
                     )}
 

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, LineChart, Line } from 'recharts';
-import { TrendingUp, Activity, Search, Loader2, Tag, Target, Eye, DollarSign, Radar, Zap, Trophy, ArrowRight, BarChart2, Wand2, Play, Copy, Check, Video, Image as ImageIcon, Mic, Plus, Download, Package, Calendar, ExternalLink, Microscope, Share2 } from 'lucide-react';
+import { TrendingUp, Activity, Search, Loader2, Tag, Target, Eye, DollarSign, Radar, Zap, Trophy, ArrowRight, BarChart2, Wand2, Play, Copy, Check, Video, Image as ImageIcon, Mic, Plus, Download, Package, Calendar, ExternalLink, Microscope, Share2, Settings as SettingsIcon, AlertCircle } from 'lucide-react';
 import { analyzeTrends, scanWinningProducts, generateCampaignStrategy, generateMarketingImage, generateMarketingVideo, generateMarketingAudio, playAudioBuffer, downloadKitAsZip, downloadFile, audioBufferToWavUrl } from '../services/geminiService';
-import { TrendData, WinningProduct, MarketingKit, AppSettings, TimeRange } from '../types';
+import { TrendData, WinningProduct, MarketingKit, AppSettings, TimeRange, View } from '../types';
 
 enum Mode {
     AUTO_SCAN = 'AUTO_SCAN',
@@ -12,9 +12,10 @@ enum Mode {
 
 interface TrendsProps {
     settings?: AppSettings;
+    onViewChange: (view: View) => void;
 }
 
-export const Trends: React.FC<TrendsProps> = ({ settings }) => {
+export const Trends: React.FC<TrendsProps> = ({ settings, onViewChange }) => {
     const currentLang = settings?.language || 'fr';
     const [mode, setMode] = useState<Mode>(Mode.AUTO_SCAN);
     
@@ -25,6 +26,7 @@ export const Trends: React.FC<TrendsProps> = ({ settings }) => {
     const [niche, setNiche] = useState('');
     const [data, setData] = useState<TrendData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Auto Scan State
     const [scanning, setScanning] = useState(false);
@@ -47,11 +49,13 @@ export const Trends: React.FC<TrendsProps> = ({ settings }) => {
         setMode(Mode.NICHE_ANALYSIS);
         setLoading(true);
         setData(null);
+        setError(null);
         try {
             const result = await analyzeTrends(queryNiche, currentLang, timeRange);
             setData(result);
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
+            setError(e.message || "Erreur d'analyse");
         } finally {
             setLoading(false);
         }
@@ -72,9 +76,9 @@ export const Trends: React.FC<TrendsProps> = ({ settings }) => {
             const reindexedResults = results.map((p, index) => ({...p, rank: startRank + index}));
 
             setWinningProducts(prev => isLoadMore ? [...prev, ...reindexedResults] : reindexedResults);
-        } catch (e) {
+        } catch (e: any) {
             console.error("Scan failed", e);
-            setScanError("Erreur lors du scan. Veuillez réessayer.");
+            setScanError(e.message || "Erreur lors du scan. Veuillez réessayer.");
         } finally {
             setScanning(false);
         }
@@ -147,6 +151,24 @@ export const Trends: React.FC<TrendsProps> = ({ settings }) => {
         }
     }
 
+    const ErrorBanner = ({ msg }: { msg: string }) => (
+        <div className="p-4 bg-red-900/30 border border-red-800 text-red-200 rounded-xl flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
+            <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p>{msg}</p>
+            </div>
+            {msg.includes('Quota') && (
+                <button 
+                    onClick={() => onViewChange(View.SETTINGS)}
+                    className="px-4 py-2 bg-red-800 hover:bg-red-700 text-white text-sm rounded-lg font-bold flex items-center gap-2 transition-colors whitespace-nowrap"
+                >
+                    <SettingsIcon className="w-4 h-4" />
+                    Configurer Clé API
+                </button>
+            )}
+        </div>
+    );
+
     return (
         <div className="space-y-8 pb-10">
             <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
@@ -201,6 +223,8 @@ export const Trends: React.FC<TrendsProps> = ({ settings }) => {
             {/* --- MODE 1: AUTO SCANNER --- */}
             {mode === Mode.AUTO_SCAN && (
                 <div className="animate-in fade-in zoom-in-95 duration-300">
+                     {scanError && <ErrorBanner msg={scanError} />}
+                    
                     {winningProducts.length === 0 && (
                         <div className="bg-dark-900 p-8 rounded-2xl border border-slate-800 text-center relative overflow-hidden mb-8">
                              {/* ... Same content as before but prompt is handled in service ... */}
@@ -420,6 +444,8 @@ export const Trends: React.FC<TrendsProps> = ({ settings }) => {
                             </button>
                         </div>
                     </div>
+                    
+                    {error && <ErrorBanner msg={error} />}
 
                     {/* Existing Charts and Data */}
                     {data ? (

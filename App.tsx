@@ -23,8 +23,8 @@ const Dashboard: React.FC<{ onViewChange: (v: View) => void }> = ({ onViewChange
                 <div className="bg-indigo-500/20 w-fit p-3 rounded-lg mb-4 group-hover:scale-110 transition-transform">
                     <Rocket className="w-8 h-8 text-indigo-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Trouver un produit</h3>
-                <p className="text-slate-400">Analysez le marché, espionnez les concurrents et trouvez les produits gagnants.</p>
+                <h3 className="text-xl font-bold text-white mb-2">Comparateur Produit</h3>
+                <p className="text-slate-400">Analysez les prix, les concurrents et trouvez les produits gagnants (Amazon/AliExpress).</p>
             </div>
 
             <div 
@@ -98,8 +98,8 @@ function App() {
   return (
     <Layout currentView={currentView} setCurrentView={setCurrentView}>
       {currentView === View.DASHBOARD && <Dashboard onViewChange={setCurrentView} />}
-      {currentView === View.RESEARCH && <Research />}
-      {currentView === View.TRENDS && <Trends settings={settings} />}
+      {currentView === View.RESEARCH && <Research onViewChange={setCurrentView} />}
+      {currentView === View.TRENDS && <Trends settings={settings} onViewChange={setCurrentView} />}
       {currentView === View.ASSETS && <Assets />}
       {currentView === View.SETTINGS && <Settings settings={settings} onSettingsChange={handleSettingsChange} />}
     </Layout>

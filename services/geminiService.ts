@@ -158,26 +158,33 @@ export interface SearchFilters {
 }
 
 export const searchProducts = async (query: string, filters?: SearchFilters, language: Language = 'fr'): Promise<string> => {
-  let promptContext = `Agis comme un expert senior en sourcing e-commerce. Langue de réponse : ${language}.
+  let promptContext = `Agis comme un expert senior en sourcing et marketing e-commerce. Langue de réponse : ${language}.
   
-  TACHE : Analyse le produit ou la niche "${query}" en comparant les marchés Chinois, Européens et Américains.
+  OBJECTIF : Fournir une analyse comparative détaillée du produit "${query}" sur les principales plateformes mondiales.
   
-  INSTRUCTIONS DE RECHERCHE :
-  1. Cherche les fournisseurs en CHINE (AliExpress, Alibaba, Temu).
-  2. Cherche les concurrents en EUROPE et USA (Amazon, eBay).
-  3. Analyse les tendances sur Google, Bing et Yahoo Search pour ce produit.
-  
-  FORMAT DE RÉPONSE ATTENDU (Markdown Strict) :
-  
-  ## 1. Tableau Comparatif Global
-  | Marché | Plateforme | Prix Moyen | Lien Produit (URL) |
-  
-  ## 2. Analyse Rentabilité & Moteurs de Recherche
-  * **Prix d'achat vs Revente**.
-  * **Volume de recherche** (Google/Bing/Yahoo) : Estimation de la popularité.
+  ACTIONS DE RECHERCHE (Grounding Google Search) :
+  1. Trouve les prix et les fiches produits sur Amazon (USA/Europe).
+  2. Trouve les fournisseurs et coûts sur AliExpress/Alibaba (Chine).
+  3. Analyse la présence sur TikTok/Facebook (Viralité).
+  4. Compare les avis clients et les points de douleur.
 
-  ## 3. Verdict
-  * "Winning Product" ou "Saturé" ?
+  FORMAT DE RÉPONSE (Markdown Strict) :
+  
+  ## 📊 Tableau Comparatif Multi-Plateformes
+  | Plateforme | Prix Moyen | Délai Livraison | Note Client | Lien (Est.) |
+  |------------|------------|-----------------|-------------|-------------|
+  | Amazon     | ...        | ...             | ...         | ...         |
+  | AliExpress | ...        | ...             | ...         | ...         |
+  | Concurrent | ...        | ...             | ...         | ...         |
+
+  ## 💡 Analyse Concurrentielle
+  * **Points Forts** : Ce que les clients aiment.
+  * **Points Faibles** : Ce que les clients critiquent (Opportunité d'amélioration).
+  * **Marge Estimée** : Prix de vente Amazon - Coût AliExpress.
+
+  ## 🚀 Verdict Marketing
+  * Potentiel de viralité sur TikTok ?
+  * Angle marketing recommandé ?
 
   ${filters?.category ? `Focus catégorie : ${filters.category}.` : ''}
   `;

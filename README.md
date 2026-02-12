@@ -17,7 +17,7 @@ Application React/Vite pour recherche produit, analyse de tendances et générat
    VITE_GEMINI_API_KEY=
    VITE_OPENAI_API_KEY=
    VITE_ANTHROPIC_API_KEY=
-   VITE_OLLAMA_BASE_URL=http://localhost:11434
+   VITE_OLLAMA_BASE_URL=https://api.ollama.com
    VITE_OLLAMA_MODEL=llama3.1
    ```
 3. Lancer:
@@ -30,7 +30,7 @@ Application React/Vite pour recherche produit, analyse de tendances et générat
 - **Gemini** (texte, image, audio, vidéo Veo)
 - **OpenAI** (texte/JSON)
 - **Anthropic** (texte/JSON)
-- **Ollama API** (texte/JSON local)
+- **Ollama Cloud API** (texte/JSON distant)
 
 Le provider actif + les clés sont aussi enregistrés localement dans SQLite (via Settings).
 

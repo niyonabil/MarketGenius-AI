@@ -12,7 +12,7 @@ const PROVIDERS: { value: AIProvider; label: string; help: string }[] = [
     { value: 'gemini', label: 'Google Gemini', help: 'Recommandé pour image/vidéo/audio.' },
     { value: 'openai', label: 'OpenAI', help: 'Bon pour texte et JSON.' },
     { value: 'anthropic', label: 'Anthropic Claude', help: 'Très bon en analyse structurée.' },
-    { value: 'ollama', label: 'Ollama (local)', help: 'Inference locale (ex: http://localhost:11434).' }
+    { value: 'ollama', label: 'Ollama Cloud', help: 'Inference cloud (ex: https://api.ollama.com).' }
 ];
 
 export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
@@ -20,7 +20,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
     const [apiKeys, setApiKeys] = useState<Record<AIProvider, string>>({ gemini: '', openai: '', anthropic: '', ollama: '' });
     const [showKey, setShowKey] = useState(false);
     const [savedSuccess, setSavedSuccess] = useState(false);
-    const [ollamaBaseUrl, setOllamaBaseUrl] = useState('http://localhost:11434');
+    const [ollamaBaseUrl, setOllamaBaseUrl] = useState('https://api.ollama.com');
     const [ollamaModel, setOllamaModel] = useState('llama3.1');
 
     useEffect(() => {
@@ -42,7 +42,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
     const handleSave = () => {
         dbService.setProvider(provider);
         (Object.keys(apiKeys) as AIProvider[]).forEach(p => dbService.setApiKey(p, apiKeys[p].trim()));
-        dbService.setOllamaBaseUrl(ollamaBaseUrl.trim() || 'http://localhost:11434');
+        dbService.setOllamaBaseUrl(ollamaBaseUrl.trim() || 'https://api.ollama.com');
         dbService.setOllamaModel(ollamaModel.trim() || 'llama3.1');
         setSavedSuccess(true);
         setTimeout(() => setSavedSuccess(false), 3000);
@@ -171,7 +171,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
                         <Info className="w-6 h-6 text-slate-500 flex-shrink-0" />
                         <div>
                             <h4 className="text-white font-bold text-sm">Notes d'utilisation API</h4>
-                            <p className="text-xs text-slate-400 mt-1">Correction appliquée : les clés sont lues via Vite (`import.meta.env`) et via SQLite local. Pour Ollama, exposez le serveur en HTTP local.</p>
+                            <p className="text-xs text-slate-400 mt-1">Correction appliquée : les clés sont lues via Vite (`import.meta.env`) et via SQLite local. Pour Ollama Cloud, utilisez une URL HTTPS distante et votre token API.</p>
                         </div>
                     </div>
                 </div>

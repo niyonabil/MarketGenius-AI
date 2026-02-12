@@ -32,7 +32,7 @@ function getApiKey(provider: AIProvider): string {
 }
 
 function getOllamaBaseUrl(): string {
-  return dbService.getOllamaBaseUrl() || getEnv('VITE_OLLAMA_BASE_URL') || 'http://localhost:11434';
+  return dbService.getOllamaBaseUrl() || getEnv('VITE_OLLAMA_BASE_URL') || 'https://api.ollama.com';
 }
 
 function getOllamaModel(): string {
@@ -131,12 +131,16 @@ async function generateTextWithProvider(prompt: string, language: Language, forc
     return data.content?.[0]?.text || '';
   }
 
-  const response = await fetch(`${getOllamaBaseUrl().replace(/\/$/, '')}/api/chat`, {
+  const baseUrl = getOllamaBaseUrl().replace(/\/$/, '');
+  const token = getApiKey('ollama');
+  const commonHeaders = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  };
+
+  const nativeResponse = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(getApiKey('ollama') ? { Authorization: `Bearer ${getApiKey('ollama')}` } : {})
-    },
+    headers: commonHeaders,
     body: JSON.stringify({
       model: getOllamaModel(),
       stream: false,
@@ -144,9 +148,24 @@ async function generateTextWithProvider(prompt: string, language: Language, forc
     })
   });
 
-  if (!response.ok) throw new Error(`Ollama error: ${response.status}`);
-  const data = await response.json();
-  return data.message?.content || '';
+  if (nativeResponse.ok) {
+    const data = await nativeResponse.json();
+    return data.message?.content || '';
+  }
+
+  const openAiCompatResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: commonHeaders,
+    body: JSON.stringify({
+      model: getOllamaModel(),
+      messages: [{ role: 'user', content: buildPrompt(prompt, language) }],
+      temperature: 0.7
+    })
+  });
+
+  if (!openAiCompatResponse.ok) throw new Error(`Ollama error: ${openAiCompatResponse.status}`);
+  const data = await openAiCompatResponse.json();
+  return data.choices?.[0]?.message?.content || '';
 }
 
 async function generateJsonWithProvider(prompt: string, language: Language, fallback: any): Promise<any> {

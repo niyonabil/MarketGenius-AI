@@ -161,7 +161,7 @@ class DatabaseService {
     }
 
     getOllamaBaseUrl(): string {
-        return this.getSetting('OLLAMA_BASE_URL') || 'http://localhost:11434';
+        return this.getSetting('OLLAMA_BASE_URL') || 'https://api.ollama.com';
     }
 
     setOllamaModel(model: string) {

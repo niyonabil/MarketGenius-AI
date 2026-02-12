@@ -32,11 +32,20 @@ function getApiKey(provider: AIProvider): string {
 }
 
 function getOllamaBaseUrl(): string {
-  return dbService.getOllamaBaseUrl() || getEnv('VITE_OLLAMA_BASE_URL') || 'https://ollama.com';
+  return dbService.getOllamaBaseUrl() || getEnv('VITE_OLLAMA_BASE_URL') || '/api/ollama';
 }
 
 function getOllamaModel(): string {
   return dbService.getOllamaModel() || getEnv('VITE_OLLAMA_MODEL') || DEFAULT_MODELS.ollama;
+}
+
+
+function getOllamaEndpoint(baseUrl: string, endpoint: 'chat' | 'tags'): string {
+  const cleanBase = baseUrl.replace(/\/$/, '');
+  if (cleanBase.startsWith('/api/ollama')) {
+    return `${cleanBase}/${endpoint}`;
+  }
+  return `${cleanBase}/api/${endpoint}`;
 }
 
 function buildPrompt(message: string, language: Language): string {
@@ -131,14 +140,14 @@ async function generateTextWithProvider(prompt: string, language: Language, forc
     return data.content?.[0]?.text || '';
   }
 
-  const baseUrl = getOllamaBaseUrl().replace(/\/$/, '');
+  const baseUrl = getOllamaBaseUrl();
   const token = getApiKey('ollama');
   const commonHeaders = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   };
 
-  const response = await fetch(`${baseUrl}/api/chat`, {
+  const response = await fetch(getOllamaEndpoint(baseUrl, 'chat'), {
     method: 'POST',
     headers: commonHeaders,
     body: JSON.stringify({
@@ -255,9 +264,9 @@ function createWavBuffer(buffer: AudioBuffer): ArrayBuffer {
 
 
 export const listOllamaCloudModels = async (): Promise<string[]> => {
-  const baseUrl = getOllamaBaseUrl().replace(/\/$/, '');
+  const baseUrl = getOllamaBaseUrl();
   const token = getApiKey('ollama');
-  const response = await fetch(`${baseUrl}/api/tags`, {
+  const response = await fetch(getOllamaEndpoint(baseUrl, 'tags'), {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     }

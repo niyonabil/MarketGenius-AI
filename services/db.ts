@@ -161,7 +161,7 @@ class DatabaseService {
     }
 
     getOllamaBaseUrl(): string {
-        return this.getSetting('OLLAMA_BASE_URL') || 'https://ollama.com';
+        return this.getSetting('OLLAMA_BASE_URL') || '/api/ollama';
     }
 
     setOllamaModel(model: string) {

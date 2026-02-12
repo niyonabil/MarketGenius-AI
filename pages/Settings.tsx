@@ -13,7 +13,7 @@ const PROVIDERS: { value: AIProvider; label: string; help: string }[] = [
     { value: 'gemini', label: 'Google Gemini', help: 'Recommandé pour image/vidéo/audio.' },
     { value: 'openai', label: 'OpenAI', help: 'Bon pour texte et JSON.' },
     { value: 'anthropic', label: 'Anthropic Claude', help: 'Très bon en analyse structurée.' },
-    { value: 'ollama', label: 'Ollama Cloud', help: 'API distante officielle (ex: https://ollama.com).' }
+    { value: 'ollama', label: 'Ollama Cloud', help: 'Cloud via proxy interne (défaut: /api/ollama) ou URL distante custom.' }
 ];
 
 export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
@@ -21,7 +21,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
     const [apiKeys, setApiKeys] = useState<Record<AIProvider, string>>({ gemini: '', openai: '', anthropic: '', ollama: '' });
     const [showKey, setShowKey] = useState(false);
     const [savedSuccess, setSavedSuccess] = useState(false);
-    const [ollamaBaseUrl, setOllamaBaseUrl] = useState('https://ollama.com');
+    const [ollamaBaseUrl, setOllamaBaseUrl] = useState('/api/ollama');
     const [ollamaModel, setOllamaModel] = useState('gpt-oss:120b');
     const [ollamaModels, setOllamaModels] = useState<string[]>([]);
     const [loadingModels, setLoadingModels] = useState(false);
@@ -46,7 +46,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
     const handleSave = () => {
         dbService.setProvider(provider);
         (Object.keys(apiKeys) as AIProvider[]).forEach(p => dbService.setApiKey(p, apiKeys[p].trim()));
-        dbService.setOllamaBaseUrl(ollamaBaseUrl.trim() || 'https://ollama.com');
+        dbService.setOllamaBaseUrl(ollamaBaseUrl.trim() || '/api/ollama');
         dbService.setOllamaModel(ollamaModel.trim() || 'gpt-oss:120b');
         setSavedSuccess(true);
         setTimeout(() => setSavedSuccess(false), 3000);
@@ -57,7 +57,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
         setLoadingModels(true);
         setModelsError('');
         try {
-            dbService.setOllamaBaseUrl(ollamaBaseUrl.trim() || 'https://ollama.com');
+            dbService.setOllamaBaseUrl(ollamaBaseUrl.trim() || '/api/ollama');
             dbService.setApiKey('ollama', apiKeys.ollama.trim());
             const models = await listOllamaCloudModels();
             setOllamaModels(models);
@@ -201,7 +201,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
                         <Info className="w-6 h-6 text-slate-500 flex-shrink-0" />
                         <div>
                             <h4 className="text-white font-bold text-sm">Notes d'utilisation API</h4>
-                            <p className="text-xs text-slate-400 mt-1">Correction appliquée : les clés sont lues via Vite (`import.meta.env`) et via SQLite local. Pour Ollama Cloud, utilisez `https://ollama.com/api/chat` avec un token (Authorization: Bearer OLLAMA_API_KEY). Vous pouvez charger les modèles disponibles via `/api/tags`.</p>
+                            <p className="text-xs text-slate-400 mt-1">Correction appliquée : les clés sont lues via Vite (`import.meta.env`) et via SQLite local. Pour Ollama Cloud en production web, utilisez le proxy `/api/ollama` (évite CORS) ou une URL custom. Auth: Bearer OLLAMA_API_KEY.</p>
                         </div>
                     </div>
                 </div>

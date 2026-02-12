@@ -18,7 +18,7 @@ Application React/Vite pour recherche produit, analyse de tendances et générat
    VITE_OPENAI_API_KEY=
    VITE_ANTHROPIC_API_KEY=
    VITE_OLLAMA_API_KEY=
-   VITE_OLLAMA_BASE_URL=https://ollama.com
+   VITE_OLLAMA_BASE_URL=/api/ollama
    VITE_OLLAMA_MODEL=gpt-oss:120b
    ```
 3. Lancer:
@@ -31,7 +31,7 @@ Application React/Vite pour recherche produit, analyse de tendances et générat
 - **Gemini** (texte, image, audio, vidéo Veo)
 - **OpenAI** (texte/JSON)
 - **Anthropic** (texte/JSON)
-- **Ollama Cloud API** (texte/JSON distant via `https://ollama.com/api/chat`)
+- **Ollama Cloud API** (texte/JSON via proxy `/api/ollama` pour éviter CORS)
 
 Le provider actif + les clés sont aussi enregistrés localement dans SQLite (via Settings).
 
@@ -56,3 +56,9 @@ curl https://ollama.com/api/chat \
     "stream": false
   }'
 ```
+
+
+## Proxy Ollama (CORS-safe)
+
+Ce repo inclut une fonction serverless `api/ollama/[...path].js` qui relaie vers `https://ollama.com`.
+En front, laissez `VITE_OLLAMA_BASE_URL=/api/ollama` (défaut) pour éviter les erreurs CORS en production.

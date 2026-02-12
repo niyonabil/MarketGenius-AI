@@ -66,6 +66,12 @@ En front, laissez `VITE_OLLAMA_BASE_URL=/api/ollama` (défaut) pour éviter les 
 
 ### Exemple JavaScript (serveur)
 
+Installez la librairie :
+
+```bash
+npm i ollama
+```
+
 ```ts
 import { Ollama } from "ollama";
 

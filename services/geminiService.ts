@@ -253,6 +253,22 @@ function createWavBuffer(buffer: AudioBuffer): ArrayBuffer {
   return bufferArr;
 }
 
+
+export const listOllamaCloudModels = async (): Promise<string[]> => {
+  const baseUrl = getOllamaBaseUrl().replace(/\/$/, '');
+  const token = getApiKey('ollama');
+  const response = await fetch(`${baseUrl}/api/tags`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+  });
+
+  if (!response.ok) throw new Error(`Ollama tags error: ${response.status}`);
+  const data = await response.json();
+  const models = Array.isArray(data?.models) ? data.models : [];
+  return models.map((m: any) => m?.model).filter((name: any) => typeof name === 'string');
+};
+
 export const searchProducts = async (query: string, filters?: SearchFilters, language: Language = 'fr'): Promise<string> => {
   const promptContext = `Agis comme un expert senior en sourcing et marketing e-commerce.\nOBJECTIF: Analyse comparative détaillée du produit "${query}".\n${filters?.category ? `Focus catégorie: ${filters.category}.` : ''}`;
   return withRetry(() => generateTextWithProvider(promptContext, language, true), language);

@@ -41,3 +41,18 @@ Le provider actif + les clés sont aussi enregistrés localement dans SQLite (vi
 - Les fonctions recherche/tendance/stratégie basculent selon le provider actif.
 - Les médias avancés (image/vidéo/audio) restent sur Gemini.
 - Pour Ollama Cloud, créez une clé sur https://ollama.com/settings/keys et utilisez-la comme `VITE_OLLAMA_API_KEY`.
+
+
+### Vérifier Ollama Cloud
+
+```bash
+curl https://ollama.com/api/tags
+
+curl https://ollama.com/api/chat \
+  -H "Authorization: Bearer $OLLAMA_API_KEY" \
+  -d '{
+    "model": "gpt-oss:120b",
+    "messages": [{"role": "user", "content": "Why is the sky blue?"}],
+    "stream": false
+  }'
+```

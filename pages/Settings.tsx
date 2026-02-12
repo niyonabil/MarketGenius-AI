@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Globe, Key, Info, Save, Eye, EyeOff, Cpu } from 'lucide-react';
 import { AIProvider, AppSettings, Language } from '../types';
 import { dbService } from '../services/db';
+import { listOllamaCloudModels } from '../services/geminiService';
 
 interface SettingsProps {
     settings: AppSettings;
@@ -22,6 +23,9 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
     const [savedSuccess, setSavedSuccess] = useState(false);
     const [ollamaBaseUrl, setOllamaBaseUrl] = useState('https://ollama.com');
     const [ollamaModel, setOllamaModel] = useState('gpt-oss:120b');
+    const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+    const [loadingModels, setLoadingModels] = useState(false);
+    const [modelsError, setModelsError] = useState('');
 
     useEffect(() => {
         setProvider(dbService.getProvider());
@@ -46,6 +50,25 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
         dbService.setOllamaModel(ollamaModel.trim() || 'gpt-oss:120b');
         setSavedSuccess(true);
         setTimeout(() => setSavedSuccess(false), 3000);
+    };
+
+
+    const handleLoadOllamaModels = async () => {
+        setLoadingModels(true);
+        setModelsError('');
+        try {
+            dbService.setOllamaBaseUrl(ollamaBaseUrl.trim() || 'https://ollama.com');
+            dbService.setApiKey('ollama', apiKeys.ollama.trim());
+            const models = await listOllamaCloudModels();
+            setOllamaModels(models);
+            if (!ollamaModel && models.length > 0) {
+                setOllamaModel(models[0]);
+            }
+        } catch (error: any) {
+            setModelsError(error?.message || 'Impossible de charger les modèles Ollama.');
+        } finally {
+            setLoadingModels(false);
+        }
     };
 
     const triggerVeoKeySelection = async () => {
@@ -148,8 +171,15 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
                                     <input value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)} className="mt-1 w-full bg-dark-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm" />
                                 </label>
                                 <label className="text-sm font-bold text-slate-300">Ollama Model
-                                    <input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} className="mt-1 w-full bg-dark-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm" />
+                                    <input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} list="ollama-model-list" className="mt-1 w-full bg-dark-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm" />
+                                    <datalist id="ollama-model-list">
+                                        {ollamaModels.map(model => <option key={model} value={model} />)}
+                                    </datalist>
                                 </label>
+                                <button onClick={handleLoadOllamaModels} disabled={loadingModels} className="bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-200 border border-slate-700 rounded-lg py-2 text-sm font-semibold">
+                                    {loadingModels ? 'Chargement modèles...' : 'Charger modèles cloud (/api/tags)'}
+                                </button>
+                                {modelsError && <p className="text-xs text-red-400">{modelsError}</p>}
                             </div>
 
                             <button onClick={handleSave} className="w-full bg-brand-600 hover:bg-brand-500 text-white p-3 rounded-lg transition-colors font-bold flex justify-center gap-2 items-center">
@@ -171,7 +201,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
                         <Info className="w-6 h-6 text-slate-500 flex-shrink-0" />
                         <div>
                             <h4 className="text-white font-bold text-sm">Notes d'utilisation API</h4>
-                            <p className="text-xs text-slate-400 mt-1">Correction appliquée : les clés sont lues via Vite (`import.meta.env`) et via SQLite local. Pour Ollama Cloud, utilisez `https://ollama.com/api/chat` avec un token (Authorization: Bearer OLLAMA_API_KEY).</p>
+                            <p className="text-xs text-slate-400 mt-1">Correction appliquée : les clés sont lues via Vite (`import.meta.env`) et via SQLite local. Pour Ollama Cloud, utilisez `https://ollama.com/api/chat` avec un token (Authorization: Bearer OLLAMA_API_KEY). Vous pouvez charger les modèles disponibles via `/api/tags`.</p>
                         </div>
                     </div>
                 </div>

@@ -5,13 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MarketGenius AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      const __originalWarn = console.warn;
-      console.warn = (...args) => {
-        if (typeof args?.[0] === 'string' && args[0].includes('cdn.tailwindcss.com should not be used in production')) return;
-        __originalWarn(...args);
-      };
-    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script type="importmap">
     {

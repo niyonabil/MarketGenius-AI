@@ -62,3 +62,29 @@ curl https://ollama.com/api/chat \
 
 Ce repo inclut une fonction serverless `api/ollama/[...path].js` qui relaie vers `https://ollama.com`.
 En front, laissez `VITE_OLLAMA_BASE_URL=/api/ollama` (défaut) pour éviter les erreurs CORS en production.
+
+
+### Exemple JavaScript (serveur)
+
+```ts
+import { Ollama } from "ollama";
+
+const ollama = new Ollama({
+  host: "https://ollama.com",
+  headers: {
+    Authorization: "Bearer " + process.env.OLLAMA_API_KEY,
+  },
+});
+
+const response = await ollama.chat({
+  model: "gpt-oss:120b",
+  messages: [{ role: "user", content: "Explain quantum computing" }],
+  stream: true,
+});
+
+for await (const part of response) {
+  process.stdout.write(part.message.content);
+}
+```
+
+> Utilisez cet exemple côté serveur (Node.js), pas directement dans le navigateur.

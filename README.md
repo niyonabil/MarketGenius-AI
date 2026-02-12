@@ -17,8 +17,9 @@ Application React/Vite pour recherche produit, analyse de tendances et générat
    VITE_GEMINI_API_KEY=
    VITE_OPENAI_API_KEY=
    VITE_ANTHROPIC_API_KEY=
-   VITE_OLLAMA_BASE_URL=https://api.ollama.com
-   VITE_OLLAMA_MODEL=llama3.1
+   VITE_OLLAMA_API_KEY=
+   VITE_OLLAMA_BASE_URL=https://ollama.com
+   VITE_OLLAMA_MODEL=gpt-oss:120b
    ```
 3. Lancer:
    ```bash
@@ -30,7 +31,7 @@ Application React/Vite pour recherche produit, analyse de tendances et générat
 - **Gemini** (texte, image, audio, vidéo Veo)
 - **OpenAI** (texte/JSON)
 - **Anthropic** (texte/JSON)
-- **Ollama Cloud API** (texte/JSON distant)
+- **Ollama Cloud API** (texte/JSON distant via `https://ollama.com/api/chat`)
 
 Le provider actif + les clés sont aussi enregistrés localement dans SQLite (via Settings).
 
@@ -39,3 +40,4 @@ Le provider actif + les clés sont aussi enregistrés localement dans SQLite (vi
 - Les accès API côté front utilisent **`import.meta.env`** (Vite) et non `process.env`.
 - Les fonctions recherche/tendance/stratégie basculent selon le provider actif.
 - Les médias avancés (image/vidéo/audio) restent sur Gemini.
+- Pour Ollama Cloud, créez une clé sur https://ollama.com/settings/keys et utilisez-la comme `VITE_OLLAMA_API_KEY`.

@@ -7,7 +7,7 @@ const DEFAULT_MODELS: Record<AIProvider, string> = {
   gemini: 'gemini-3-flash-preview',
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-sonnet-latest',
-  ollama: 'llama3.1'
+  ollama: 'gpt-oss:120b'
 };
 
 const ENV_KEYS: Record<AIProvider, string> = {
@@ -32,7 +32,7 @@ function getApiKey(provider: AIProvider): string {
 }
 
 function getOllamaBaseUrl(): string {
-  return dbService.getOllamaBaseUrl() || getEnv('VITE_OLLAMA_BASE_URL') || 'https://api.ollama.com';
+  return dbService.getOllamaBaseUrl() || getEnv('VITE_OLLAMA_BASE_URL') || 'https://ollama.com';
 }
 
 function getOllamaModel(): string {
@@ -138,7 +138,7 @@ async function generateTextWithProvider(prompt: string, language: Language, forc
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   };
 
-  const nativeResponse = await fetch(`${baseUrl}/api/chat`, {
+  const response = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
     headers: commonHeaders,
     body: JSON.stringify({
@@ -148,24 +148,9 @@ async function generateTextWithProvider(prompt: string, language: Language, forc
     })
   });
 
-  if (nativeResponse.ok) {
-    const data = await nativeResponse.json();
-    return data.message?.content || '';
-  }
-
-  const openAiCompatResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
-    method: 'POST',
-    headers: commonHeaders,
-    body: JSON.stringify({
-      model: getOllamaModel(),
-      messages: [{ role: 'user', content: buildPrompt(prompt, language) }],
-      temperature: 0.7
-    })
-  });
-
-  if (!openAiCompatResponse.ok) throw new Error(`Ollama error: ${openAiCompatResponse.status}`);
-  const data = await openAiCompatResponse.json();
-  return data.choices?.[0]?.message?.content || '';
+  if (!response.ok) throw new Error(`Ollama error: ${response.status}`);
+  const data = await response.json();
+  return data.message?.content || '';
 }
 
 async function generateJsonWithProvider(prompt: string, language: Language, fallback: any): Promise<any> {

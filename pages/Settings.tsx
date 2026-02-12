@@ -12,7 +12,7 @@ const PROVIDERS: { value: AIProvider; label: string; help: string }[] = [
     { value: 'gemini', label: 'Google Gemini', help: 'Recommandé pour image/vidéo/audio.' },
     { value: 'openai', label: 'OpenAI', help: 'Bon pour texte et JSON.' },
     { value: 'anthropic', label: 'Anthropic Claude', help: 'Très bon en analyse structurée.' },
-    { value: 'ollama', label: 'Ollama Cloud', help: 'Inference cloud (ex: https://api.ollama.com).' }
+    { value: 'ollama', label: 'Ollama Cloud', help: 'API distante officielle (ex: https://ollama.com).' }
 ];
 
 export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
@@ -20,8 +20,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
     const [apiKeys, setApiKeys] = useState<Record<AIProvider, string>>({ gemini: '', openai: '', anthropic: '', ollama: '' });
     const [showKey, setShowKey] = useState(false);
     const [savedSuccess, setSavedSuccess] = useState(false);
-    const [ollamaBaseUrl, setOllamaBaseUrl] = useState('https://api.ollama.com');
-    const [ollamaModel, setOllamaModel] = useState('llama3.1');
+    const [ollamaBaseUrl, setOllamaBaseUrl] = useState('https://ollama.com');
+    const [ollamaModel, setOllamaModel] = useState('gpt-oss:120b');
 
     useEffect(() => {
         setProvider(dbService.getProvider());
@@ -42,8 +42,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
     const handleSave = () => {
         dbService.setProvider(provider);
         (Object.keys(apiKeys) as AIProvider[]).forEach(p => dbService.setApiKey(p, apiKeys[p].trim()));
-        dbService.setOllamaBaseUrl(ollamaBaseUrl.trim() || 'https://api.ollama.com');
-        dbService.setOllamaModel(ollamaModel.trim() || 'llama3.1');
+        dbService.setOllamaBaseUrl(ollamaBaseUrl.trim() || 'https://ollama.com');
+        dbService.setOllamaModel(ollamaModel.trim() || 'gpt-oss:120b');
         setSavedSuccess(true);
         setTimeout(() => setSavedSuccess(false), 3000);
     };
@@ -133,7 +133,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
                                             type={showKey ? 'text' : 'password'}
                                             value={apiKeys[provider]}
                                             onChange={(e) => setApiKeys(prev => ({ ...prev, [provider]: e.target.value }))}
-                                            placeholder={provider === 'gemini' ? 'AIzaSy...' : provider === 'openai' ? 'sk-...' : provider === 'anthropic' ? 'sk-ant-...' : 'optionnel'}
+                                            placeholder={provider === 'gemini' ? 'AIzaSy...' : provider === 'openai' ? 'sk-...' : provider === 'anthropic' ? 'sk-ant-...' : 'OLLAMA_API_KEY'}
                                             className="w-full bg-dark-900 border border-slate-700 text-white rounded-lg pl-3 pr-10 py-3 focus:border-yellow-500 outline-none text-sm font-mono"
                                         />
                                         <button onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
@@ -171,7 +171,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }
                         <Info className="w-6 h-6 text-slate-500 flex-shrink-0" />
                         <div>
                             <h4 className="text-white font-bold text-sm">Notes d'utilisation API</h4>
-                            <p className="text-xs text-slate-400 mt-1">Correction appliquée : les clés sont lues via Vite (`import.meta.env`) et via SQLite local. Pour Ollama Cloud, utilisez une URL HTTPS distante et votre token API.</p>
+                            <p className="text-xs text-slate-400 mt-1">Correction appliquée : les clés sont lues via Vite (`import.meta.env`) et via SQLite local. Pour Ollama Cloud, utilisez `https://ollama.com/api/chat` avec un token (Authorization: Bearer OLLAMA_API_KEY).</p>
                         </div>
                     </div>
                 </div>

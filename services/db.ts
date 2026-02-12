@@ -161,7 +161,7 @@ class DatabaseService {
     }
 
     getOllamaBaseUrl(): string {
-        return this.getSetting('OLLAMA_BASE_URL') || 'https://api.ollama.com';
+        return this.getSetting('OLLAMA_BASE_URL') || 'https://ollama.com';
     }
 
     setOllamaModel(model: string) {
@@ -169,7 +169,7 @@ class DatabaseService {
     }
 
     getOllamaModel(): string {
-        return this.getSetting('OLLAMA_MODEL') || 'llama3.1';
+        return this.getSetting('OLLAMA_MODEL') || 'gpt-oss:120b';
     }
 }
 

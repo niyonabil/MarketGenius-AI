@@ -2,19 +2,95 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# MarketGenius AI
 
-This contains everything you need to run your app locally.
+Application React/Vite pour recherche produit, analyse de tendances et génération de contenus marketing IA.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1pd2Yo53tgDzrJWh_y3qqX7dBkrDsNLpC
+## Démarrage
 
-## Run Locally
+1. Installer les dépendances:
+   ```bash
+   npm install
+   ```
+2. Créer un `.env.local` (optionnel) avec vos clés:
+   ```bash
+   VITE_GEMINI_API_KEY=
+   VITE_OPENAI_API_KEY=
+   VITE_ANTHROPIC_API_KEY=
+   VITE_OLLAMA_API_KEY=
+   VITE_OLLAMA_BASE_URL=/api/ollama
+   VITE_OLLAMA_MODEL=gpt-oss:120b
+   ```
+3. Lancer:
+   ```bash
+   npm run dev
+   ```
 
-**Prerequisites:**  Node.js
+## Providers supportés
+
+- **Gemini** (texte, image, audio, vidéo Veo)
+- **OpenAI** (texte/JSON)
+- **Anthropic** (texte/JSON)
+- **Ollama Cloud API** (texte/JSON via proxy `/api/ollama` pour éviter CORS)
+
+Le provider actif + les clés sont aussi enregistrés localement dans SQLite (via Settings).
+
+## Notes API
+
+- Les accès API côté front utilisent **`import.meta.env`** (Vite) et non `process.env`.
+- Les fonctions recherche/tendance/stratégie basculent selon le provider actif.
+- Les médias avancés (image/vidéo/audio) restent sur Gemini.
+- Pour Ollama Cloud, créez une clé sur https://ollama.com/settings/keys et utilisez-la comme `VITE_OLLAMA_API_KEY`.
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### Vérifier Ollama Cloud
+
+```bash
+curl https://ollama.com/api/tags
+
+curl https://ollama.com/api/chat \
+  -H "Authorization: Bearer $OLLAMA_API_KEY" \
+  -d '{
+    "model": "gpt-oss:120b",
+    "messages": [{"role": "user", "content": "Why is the sky blue?"}],
+    "stream": false
+  }'
+```
+
+
+## Proxy Ollama (CORS-safe)
+
+Ce repo inclut une fonction serverless `api/ollama/[...path].js` qui relaie vers `https://ollama.com`.
+En front, laissez `VITE_OLLAMA_BASE_URL=/api/ollama` (défaut) pour éviter les erreurs CORS en production.
+
+
+### Exemple JavaScript (serveur)
+
+Installez la librairie :
+
+```bash
+npm i ollama
+```
+
+```ts
+import { Ollama } from "ollama";
+
+const ollama = new Ollama({
+  host: "https://ollama.com",
+  headers: {
+    Authorization: "Bearer " + process.env.OLLAMA_API_KEY,
+  },
+});
+
+const response = await ollama.chat({
+  model: "gpt-oss:120b",
+  messages: [{ role: "user", content: "Explain quantum computing" }],
+  stream: true,
+});
+
+for await (const part of response) {
+  process.stdout.write(part.message.content);
+}
+```
+
+> Utilisez cet exemple côté serveur (Node.js), pas directement dans le navigateur.

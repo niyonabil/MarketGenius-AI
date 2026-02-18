@@ -15,6 +15,7 @@ export enum AssetType {
 
 export type Language = 'fr' | 'en' | 'es' | 'de' | 'it';
 export type TimeRange = '7d' | '30d' | '6m';
+export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'ollama';
 
 export interface AppSettings {
   language: Language;

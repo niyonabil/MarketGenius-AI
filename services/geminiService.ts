@@ -1,37 +1,71 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import JSZip from "jszip";
-import { Language, TimeRange } from "../types";
-import { dbService } from "./db";
+import { GoogleGenAI, Modality } from '@google/genai';
+import JSZip from 'jszip';
+import { AIProvider, Language, SearchFilters, TimeRange } from '../types';
+import { dbService } from './db';
 
-// Helper to get the AI client dynamically (checking DB first, then ENV)
-async function getAIClient() {
-    let apiKey = dbService.getApiKey();
-    
-    if (!apiKey) {
-        apiKey = process.env.API_KEY || '';
-    }
+const DEFAULT_MODELS: Record<AIProvider, string> = {
+  gemini: 'gemini-3-flash-preview',
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-3-5-sonnet-latest',
+  ollama: 'gpt-oss:120b'
+};
 
-    if (!apiKey) {
-        console.warn("No API Key found in DB or Environment");
-    }
+const ENV_KEYS: Record<AIProvider, string> = {
+  gemini: 'VITE_GEMINI_API_KEY',
+  openai: 'VITE_OPENAI_API_KEY',
+  anthropic: 'VITE_ANTHROPIC_API_KEY',
+  ollama: 'VITE_OLLAMA_API_KEY'
+};
 
-    return new GoogleGenAI({ apiKey });
+function getEnv(name: string): string {
+  const value = import.meta.env[name];
+  return typeof value === 'string' ? value : '';
+}
+
+function getProvider(): AIProvider {
+  const selected = dbService.getProvider();
+  return selected || 'gemini';
+}
+
+function getApiKey(provider: AIProvider): string {
+  return dbService.getApiKey(provider) || getEnv(ENV_KEYS[provider]) || '';
+}
+
+function getOllamaBaseUrl(): string {
+  return dbService.getOllamaBaseUrl() || getEnv('VITE_OLLAMA_BASE_URL') || '/api/ollama';
+}
+
+function getOllamaModel(): string {
+  return dbService.getOllamaModel() || getEnv('VITE_OLLAMA_MODEL') || DEFAULT_MODELS.ollama;
+}
+
+
+function getOllamaEndpoint(baseUrl: string, endpoint: 'chat' | 'tags'): string {
+  const cleanBase = baseUrl.replace(/\/$/, '');
+  if (cleanBase.startsWith('/api/ollama')) {
+    return `${cleanBase}/${endpoint}`;
+  }
+  return `${cleanBase}/api/${endpoint}`;
+}
+
+function buildPrompt(message: string, language: Language): string {
+  return `Réponds strictement en ${language}.\n${message}`;
 }
 
 const ERROR_MESSAGES: Record<string, Record<Language, string>> = {
   QUOTA: {
-    fr: "Quota API épuisé (429). Veuillez ajouter votre propre clé API dans les Paramètres.",
-    en: "API Quota exhausted (429). Please add your own API Key in Settings.",
-    es: "Quota de API agotada (429). Agregue su propia clave API en Configuración.",
-    de: "API-Kontingent erschöpft (429). Bitte fügen Sie Ihren eigenen API-Schlüssel in den Einstellungen hinzu.",
-    it: "Quota API esaurita (429). Aggiungi la tua chiave API nelle Impostazioni."
+    fr: 'Quota API épuisé (429). Veuillez vérifier votre provider et la clé API dans les paramètres.',
+    en: 'API quota exhausted (429). Please verify provider and API key in settings.',
+    es: 'Cuota de API agotada (429). Verifique el proveedor y la clave API en configuración.',
+    de: 'API-Kontingent erschöpft (429). Bitte Provider und API-Schlüssel prüfen.',
+    it: 'Quota API esaurita (429). Verifica provider e chiave API nelle impostazioni.'
   },
   GENERIC: {
     fr: "Une erreur est survenue lors de la communication avec l'IA.",
-    en: "An error occurred while communicating with the AI.",
-    es: "Ocurrió un error al comunicarse con la IA.",
-    de: "Ein Fehler ist bei der Kommunikation mit der KI aufgetreten.",
-    it: "Si è verificato un errore durante la communication con l'IA."
+    en: 'An error occurred while communicating with the AI.',
+    es: 'Ocurrió un error al comunicarse con la IA.',
+    de: 'Ein Fehler ist bei der Kommunikation mit der KI aufgetreten.',
+    it: "Si è verificato un errore durante la comunicazione con l'IA."
   }
 };
 
@@ -39,7 +73,7 @@ async function withRetry<T>(fn: () => Promise<T>, language: Language = 'fr', ret
   try {
     return await fn();
   } catch (error: any) {
-    if (retries > 0 && error?.message?.includes('429')) {
+    if (retries > 0 && (error?.message?.includes('429') || error?.message?.includes('quota'))) {
       await new Promise(resolve => setTimeout(resolve, delay));
       return withRetry(fn, language, retries - 1, delay * 2);
     }
@@ -47,11 +81,96 @@ async function withRetry<T>(fn: () => Promise<T>, language: Language = 'fr', ret
     if (error?.message?.includes('429')) {
       throw new Error(ERROR_MESSAGES.QUOTA[language]);
     }
-    throw new Error(ERROR_MESSAGES.GENERIC[language]);
+    throw new Error(error?.message || ERROR_MESSAGES.GENERIC[language]);
   }
 }
 
-// Helpers for Audio
+async function generateTextWithProvider(prompt: string, language: Language, forceGeminiSearch = false): Promise<string> {
+  const provider = forceGeminiSearch ? 'gemini' : getProvider();
+
+  if (provider === 'gemini') {
+    const apiKey = getApiKey('gemini');
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: DEFAULT_MODELS.gemini,
+      contents: buildPrompt(prompt, language),
+      config: forceGeminiSearch ? { tools: [{ googleSearch: {} }] } : undefined
+    });
+    return response.text || '';
+  }
+
+  if (provider === 'openai') {
+    const apiKey = getApiKey('openai');
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODELS.openai,
+        messages: [{ role: 'user', content: buildPrompt(prompt, language) }],
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) throw new Error(`OpenAI error: ${response.status}`);
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || '';
+  }
+
+  if (provider === 'anthropic') {
+    const apiKey = getApiKey('anthropic');
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODELS.anthropic,
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: buildPrompt(prompt, language) }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`Anthropic error: ${response.status}`);
+    const data = await response.json();
+    return data.content?.[0]?.text || '';
+  }
+
+  const baseUrl = getOllamaBaseUrl();
+  const token = getApiKey('ollama');
+  const commonHeaders = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  };
+
+  const response = await fetch(getOllamaEndpoint(baseUrl, 'chat'), {
+    method: 'POST',
+    headers: commonHeaders,
+    body: JSON.stringify({
+      model: getOllamaModel(),
+      stream: false,
+      messages: [{ role: 'user', content: buildPrompt(prompt, language) }]
+    })
+  });
+
+  if (!response.ok) throw new Error(`Ollama error: ${response.status}`);
+  const data = await response.json();
+  return data.message?.content || '';
+}
+
+async function generateJsonWithProvider(prompt: string, language: Language, fallback: any): Promise<any> {
+  const text = await generateTextWithProvider(`${prompt}\nRetourne UNIQUEMENT un JSON valide.`, language);
+  try {
+    return JSON.parse(text);
+  } catch {
+    return fallback;
+  }
+}
+
 function decode(base64: string) {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -62,12 +181,7 @@ function decode(base64: string) {
   return bytes;
 }
 
-async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number = 24000,
-  numChannels: number = 1,
-): Promise<AudioBuffer> {
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number = 24000, numChannels: number = 1): Promise<AudioBuffer> {
   const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
@@ -86,7 +200,7 @@ async function fetchImageBase64(url: string): Promise<string | null> {
     const response = await fetch(url);
     if (!response.ok) return null;
     const blob = await response.blob();
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
@@ -94,8 +208,7 @@ async function fetchImageBase64(url: string): Promise<string | null> {
       };
       reader.readAsDataURL(blob);
     });
-  } catch (e) {
-    console.warn("Could not fetch reference image due to CORS:", e);
+  } catch {
     return null;
   }
 }
@@ -110,29 +223,36 @@ function createWavBuffer(buffer: AudioBuffer): ArrayBuffer {
   let offset = 0;
   let pos = 0;
 
-  setUint32(0x46464952);                         // "RIFF"
-  setUint32(length - 8);                         // file length - 8
-  setUint32(0x45564157);                         // "WAVE"
+  const setUint16 = (data: number) => {
+    view.setUint16(pos, data, true);
+    pos += 2;
+  };
 
-  setUint32(0x20746d66);                         // "fmt " chunk
-  setUint32(16);                                 // length = 16
-  setUint16(1);                                  // PCM (uncompressed)
+  const setUint32 = (data: number) => {
+    view.setUint32(pos, data, true);
+    pos += 4;
+  };
+
+  setUint32(0x46464952);
+  setUint32(length - 8);
+  setUint32(0x45564157);
+  setUint32(0x20746d66);
+  setUint32(16);
+  setUint16(1);
   setUint16(numOfChan);
   setUint32(buffer.sampleRate);
-  setUint32(buffer.sampleRate * 2 * numOfChan);  // avg. bytes/sec
-  setUint16(numOfChan * 2);                      // block-align
-  setUint16(16);                                 // 16-bit
+  setUint32(buffer.sampleRate * 2 * numOfChan);
+  setUint16(numOfChan * 2);
+  setUint16(16);
+  setUint32(0x61746164);
+  setUint32(length - pos - 4);
 
-  setUint32(0x61746164);                         // "data" - chunk
-  setUint32(length - pos - 4);                   // chunk length
-
-  for (i = 0; i < buffer.numberOfChannels; i++)
-    channels.push(buffer.getChannelData(i));
+  for (i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
 
   while (pos < buffer.length) {
     for (i = 0; i < numOfChan; i++) {
-      sample = Math.max(-1, Math.min(1, channels[i][pos])); // clamp
-      sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0; // scale to 16-bit signed int
+      sample = Math.max(-1, Math.min(1, channels[i][pos]));
+      sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
       view.setInt16(44 + offset, sample, true);
       offset += 2;
     }
@@ -140,228 +260,81 @@ function createWavBuffer(buffer: AudioBuffer): ArrayBuffer {
   }
 
   return bufferArr;
-
-  function setUint16(data: any) {
-    view.setUint16(pos, data, true);
-    pos += 2;
-  }
-  function setUint32(data: any) {
-    view.setUint32(pos, data, true);
-    pos += 4;
-  }
 }
 
-export interface SearchFilters {
-  platform?: string;
-  priceRange?: string;
-  category?: string;
-}
+
+export const listOllamaCloudModels = async (): Promise<string[]> => {
+  const baseUrl = getOllamaBaseUrl();
+  const token = getApiKey('ollama');
+  const response = await fetch(getOllamaEndpoint(baseUrl, 'tags'), {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+  });
+
+  if (!response.ok) throw new Error(`Ollama tags error: ${response.status}`);
+  const data = await response.json();
+  const models = Array.isArray(data?.models) ? data.models : [];
+  return models.map((m: any) => m?.model).filter((name: any) => typeof name === 'string');
+};
 
 export const searchProducts = async (query: string, filters?: SearchFilters, language: Language = 'fr'): Promise<string> => {
-  let promptContext = `Agis comme un expert senior en sourcing et marketing e-commerce. Langue de réponse : ${language}.
-  
-  OBJECTIF : Fournir une analyse comparative détaillée du produit "${query}" sur les principales plateformes mondiales.
-  
-  ACTIONS DE RECHERCHE (Grounding Google Search) :
-  1. Trouve les prix et les fiches produits sur Amazon (USA/Europe).
-  2. Trouve les fournisseurs et coûts sur AliExpress/Alibaba (Chine).
-  3. Analyse la présence sur TikTok/Facebook (Viralité).
-  4. Compare les avis clients et les points de douleur.
-
-  FORMAT DE RÉPONSE (Markdown Strict) :
-  
-  ## 📊 Tableau Comparatif Multi-Plateformes
-  | Plateforme | Prix Moyen | Délai Livraison | Note Client | Lien (Est.) |
-  |------------|------------|-----------------|-------------|-------------|
-  | Amazon     | ...        | ...             | ...         | ...         |
-  | AliExpress | ...        | ...             | ...         | ...         |
-  | Concurrent | ...        | ...             | ...         | ...         |
-
-  ## 💡 Analyse Concurrentielle
-  * **Points Forts** : Ce que les clients aiment.
-  * **Points Faibles** : Ce que les clients critiquent (Opportunité d'amélioration).
-  * **Marge Estimée** : Prix de vente Amazon - Coût AliExpress.
-
-  ## 🚀 Verdict Marketing
-  * Potentiel de viralité sur TikTok ?
-  * Angle marketing recommandé ?
-
-  ${filters?.category ? `Focus catégorie : ${filters.category}.` : ''}
-  `;
-
-  return await withRetry(async () => {
-    const ai = await getAIClient();
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: promptContext,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
-    return response.text || "Aucune information trouvée.";
-  }, language);
+  const promptContext = `Agis comme un expert senior en sourcing et marketing e-commerce.\nOBJECTIF: Analyse comparative détaillée du produit "${query}".\n${filters?.category ? `Focus catégorie: ${filters.category}.` : ''}`;
+  return withRetry(() => generateTextWithProvider(promptContext, language, true), language);
 };
 
 export const analyzeTrends = async (niche: string, language: Language = 'fr', timeRange: TimeRange = '30d'): Promise<any> => {
-  let timeInstruction = "";
-  if (timeRange === '7d') timeInstruction = "Basé sur les données des 7 derniers jours.";
-  if (timeRange === '30d') timeInstruction = "Basé sur les données des 30 derniers jours.";
-  if (timeRange === '6m') timeInstruction = "Basé sur l'historique des 6 derniers mois.";
-
-  return await withRetry(async () => {
-    const ai = await getAIClient();
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Tu es un outil d'espionnage publicitaire. Langue du JSON : ${language}.
-      Génère des données d'analyse pour la niche : "${niche}".
-      ${timeInstruction}
-      
-      Retourne UNIQUEMENT du JSON valide.
-      
-      Structure attendue :
-      {
-        "sentiment": "Positif/Neutre/Négatif",
-        "score": 85,
-        "platforms": [
-             {"name": "TikTok", "popularity": 90},
-             {"name": "Google Search", "popularity": 60},
-             {"name": "Bing/Yahoo", "popularity": 40}
-        ],
-        "timeline": [{"name": "Période 1", "value": 20}, ...],
-        "keywords": ["mot clé 1", ...],
-        "salesData": [{"month": "Mois/Semaine", "sales": 120}, ...],
-        "adSpy": {
-            "topHooks": ["Hook 1", ...],
-            "creativeTypes": ["UGC", ...],
-            "strategy": "Stratégie..."
-        }
-      }`,
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
-    return JSON.parse(response.text || "{}");
-  }, language);
-}
+  const prompt = `Tu es un outil d'espionnage publicitaire. Génère des données d'analyse pour la niche: "${niche}" sur ${timeRange}.\nStructure attendue: { sentiment, score, platforms, timeline, keywords, salesData, adSpy }`;
+  return withRetry(() => generateJsonWithProvider(prompt, language, {}), language);
+};
 
 export const scanWinningProducts = async (excludeNames: string[] = [], language: Language = 'fr', timeRange: TimeRange = '7d'): Promise<any[]> => {
-  const excludeList = excludeNames.slice(-50).join(", ");
-
-  let timePrompt = "Actuellement tendance (7 derniers jours)";
-  if (timeRange === '30d') timePrompt = "Tendance stable du dernier mois";
-  if (timeRange === '6m') timePrompt = "Best-sellers constants des 6 derniers mois";
-
-  return await withRetry(async () => {
-    const ai = await getAIClient();
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Agis comme un algorithme de détection de produits viraux. Langue de sortie : ${language}.
-      Contexte temporel : ${timePrompt}.
-      
-      SOURCES DE DONNÉES :
-      1. TikTok Creative Center & Facebook Ads Library (Social).
-      2. **Google Trends, Bing Search Trends, Yahoo Trending** (Search Engines).
-      3. AliExpress Dropshipping Center (Marketplace).
-      
-      Identifie 12 NOUVEAUX produits qui fonctionnent bien.
-      Ne retourne PAS : ${excludeList}.
-      
-      Retourne UNIQUEMENT une liste JSON stricte :
-      [{
-          "rank": 1,
-          "name": "Nom produit",
-          "niche": "Catégorie",
-          "viralityScore": 95,
-          "platforms": ["TikTok", "Google", "Bing"],
-          "profitMargin": "x3",
-          "reason": "Pourquoi c'est viral ?",
-          "originalImageUrl": "https://..." (URL d'image jpg/png si trouvée, sinon vide)
-      }]
-      `,
-      config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-      }
-    });
-
-    const parsed = JSON.parse(response.text || "[]");
-    const list = Array.isArray(parsed) ? parsed : (parsed.products || []);
-
-    return list.map((p: any) => ({
-      ...p,
-      sourceUrl: `https://www.google.com/search?q=${encodeURIComponent(p.name)}&tbm=shop`,
-      originalImageUrl: p.originalImageUrl?.startsWith('http') ? p.originalImageUrl : undefined
-    }));
-  }, language);
-}
+  const prompt = `Trouve 12 nouveaux produits gagnants (${timeRange}) en évitant: ${excludeNames.join(', ')}. Retourne un JSON array avec rank,name,niche,viralityScore,platforms,profitMargin,reason,originalImageUrl.`;
+  const parsed = await withRetry(() => generateJsonWithProvider(prompt, language, []), language);
+  const list = Array.isArray(parsed) ? parsed : [];
+  return list.map((p: any) => ({
+    ...p,
+    sourceUrl: p?.name ? `https://www.google.com/search?q=${encodeURIComponent(p.name)}&tbm=shop` : undefined,
+    originalImageUrl: p?.originalImageUrl?.startsWith('http') ? p.originalImageUrl : undefined
+  }));
+};
 
 export const generateCampaignStrategy = async (productName: string, language: Language = 'fr'): Promise<any> => {
-  return await withRetry(async () => {
-    const ai = await getAIClient();
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Directeur Marketing IA. Produit: "${productName}". Langue: ${language}.
-      
-      JSON requis :
-      {
-          "targetAudience": "Cible",
-          "hook": "Phrase choc",
-          "adCopy": "Texte pub complet (AIDA)",
-          "videoScript": "Script TikTok (Texte à lire seulement)",
-          "imagePrompt": "Prompt image (en Anglais pour meilleure qualité, décris le produit visuellement)",
-          "videoPrompt": "Prompt vidéo (en Anglais pour meilleure qualité)"
-      }
-      `,
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
-    return JSON.parse(response.text || "{}");
-  }, language);
-}
+  const prompt = `Produit: "${productName}". Retourne un JSON: { targetAudience, hook, adCopy, videoScript, imagePrompt, videoPrompt }.`;
+  return withRetry(() => generateJsonWithProvider(prompt, language, {}), language);
+};
 
 export const generateMarketingImage = async (prompt: string, referenceImageUrl?: string, language: Language = 'fr'): Promise<string> => {
-  return await withRetry(async () => {
-    const ai = await getAIClient();
-    let parts: any[] = [];
+  return withRetry(async () => {
+    const apiKey = getApiKey('gemini');
+    const ai = new GoogleGenAI({ apiKey });
+    const parts: any[] = [];
     if (referenceImageUrl) {
       const base64Data = await fetchImageBase64(referenceImageUrl);
       if (base64Data) {
-        parts.push({
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: base64Data
-          }
-        });
-        parts.push({ text: `Make a high quality professional product photography based on this product image. Studio lighting, 4k. Context: ${prompt}` });
-      } else {
-        parts.push({ text: `Professional product photography, studio lighting, high quality, 4k. Product description: ${prompt}` });
+        parts.push({ inlineData: { mimeType: 'image/jpeg', data: base64Data } });
       }
-    } else {
-      parts.push({ text: `Professional product photography, studio lighting, high quality, 4k. Product description: ${prompt}` });
     }
 
+    parts.push({ text: `Professional product photography, studio lighting, high quality, 4k. Product description: ${prompt}` });
+
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
+      model: 'gemini-2.5-flash-image',
       contents: { parts },
-      config: {
-        imageConfig: { aspectRatio: "1:1" }
-      }
+      config: { imageConfig: { aspectRatio: '1:1' } }
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
-    throw new Error("No image generated");
+
+    throw new Error('No image generated');
   }, language);
 };
 
 export const generateMarketingVideo = async (prompt: string, language: Language = 'fr'): Promise<string> => {
-  return await withRetry(async () => {
-    const ai = await getAIClient();
-    // For Veo, we ensure we use a key that has access (handled by getAIClient or user flow)
+  return withRetry(async () => {
+    const ai = new GoogleGenAI({ apiKey: getApiKey('gemini') });
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-fast-generate-preview',
       prompt: `Cinematic product commercial, high quality: ${prompt}`,
@@ -370,50 +343,40 @@ export const generateMarketingVideo = async (prompt: string, language: Language 
 
     while (!operation.done) {
       await new Promise(resolve => setTimeout(resolve, 5000));
-      operation = await ai.operations.getVideosOperation({ operation: operation });
+      operation = await ai.operations.getVideosOperation({ operation });
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!downloadLink) throw new Error("Video generation failed");
+    if (!downloadLink) throw new Error('Video generation failed');
 
-    // We need the key here too for fetching the binary
-    const apiKey = dbService.getApiKey() || process.env.API_KEY;
-    const vidResponse = await fetch(`${downloadLink}&key=${apiKey}`);
+    const vidResponse = await fetch(`${downloadLink}&key=${getApiKey('gemini')}`);
     const blob = await vidResponse.blob();
     return URL.createObjectURL(blob);
   }, language);
 };
 
 export const generateMarketingAudio = async (text: string, language: Language = 'fr'): Promise<AudioBuffer> => {
-  return await withRetry(async () => {
-    const ai = await getAIClient();
+  return withRetry(async () => {
+    const ai = new GoogleGenAI({ apiKey: getApiKey('gemini') });
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: text }] }],
+      model: 'gemini-2.5-flash-preview-tts',
+      contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-      },
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
+      }
     });
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) throw new Error("No audio generated");
+    if (!base64Audio) throw new Error('No audio generated');
 
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    return await decodeAudioData(decode(base64Audio), audioContext, 24000, 1);
+    return decodeAudioData(decode(base64Audio), audioContext, 24000, 1);
   }, language);
 };
 
 export const generateMarketingText = async (prompt: string, language: Language = 'fr'): Promise<string> => {
-  return await withRetry(async () => {
-    const ai = await getAIClient();
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Expert Copywriter e-commerce. Langue : ${language}. Produit : "${prompt}".
-      Rédige un texte AIDA optimisé.`,
-    });
-    return response.text || "Erreur texte.";
-  }, language);
+  return withRetry(() => generateTextWithProvider(`Expert Copywriter e-commerce. Produit: "${prompt}". Rédige un texte AIDA optimisé.`, language), language);
 };
 
 export const playAudioBuffer = (buffer: AudioBuffer) => {
@@ -445,31 +408,31 @@ PROMPTS UTILISÉS:
 Image: ${kit.strategy.imagePrompt}
 Vidéo: ${kit.strategy.videoPrompt}
     `;
-  folder.file("strategie-marketing.txt", strategyText);
+  folder.file('strategie-marketing.txt', strategyText);
 
   if (kit.imageUrl) {
     const imgData = kit.imageUrl.split(',')[1];
-    folder.file("visuel-produit.png", imgData, { base64: true });
+    folder.file('visuel-produit.png', imgData, { base64: true });
   }
 
   if (kit.audioBuffer) {
     const wavBuffer = createWavBuffer(kit.audioBuffer);
-    folder.file("voiceover.wav", wavBuffer);
+    folder.file('voiceover.wav', wavBuffer);
   }
 
   if (kit.videoUrl) {
     try {
       const vidBlob = await fetch(kit.videoUrl).then(r => r.blob());
-      folder.file("publicite-video.mp4", vidBlob);
+      folder.file('publicite-video.mp4', vidBlob);
     } catch (e) {
-      console.error("Could not add video to zip", e);
+      console.error('Could not add video to zip', e);
     }
   }
 
-  const content = await zip.generateAsync({ type: "blob" });
+  const content = await zip.generateAsync({ type: 'blob' });
   const url = URL.createObjectURL(content);
 
-  const a = document.createElement("a");
+  const a = document.createElement('a');
   a.href = url;
   a.download = `kit-${kit.productName}.zip`;
   a.click();
@@ -477,14 +440,14 @@ Vidéo: ${kit.strategy.videoPrompt}
 };
 
 export const downloadFile = (url: string, filename: string) => {
-  const a = document.createElement("a");
+  const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
-}
+};
 
 export const audioBufferToWavUrl = (buffer: AudioBuffer): string => {
   const wavBuffer = createWavBuffer(buffer);
   const blob = new Blob([wavBuffer], { type: 'audio/wav' });
   return URL.createObjectURL(blob);
-}
+};

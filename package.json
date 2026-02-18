@@ -18,7 +18,8 @@
     "remark-gfm": "^4.0.1",
     "react-markdown": "^10.1.0",
     "sql.js": "1.8.0",
-    "localforage": "^1.10.0"
+    "localforage": "^1.10.0",
+    "ollama": "^0.5.16"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
